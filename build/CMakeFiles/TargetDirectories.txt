@@ -1,0 +1,17 @@
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/crytopz_core.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/crytopz_bot.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/crytopz_simulator.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/crytopz_bridge.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/crytopz_bridge_test.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/crytopz_core_test.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/crytopz_core_api_test.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/crytopz_core_api_regression_test.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/crytopz_market_data_test.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/crytopz_crypto_provider_test.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/crytopz_asset_registry_test.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/crytopz_json_test.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/crytopz_live_crypto_test.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/crytopz_live_market_feed_test.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/crytopz_live_market_scheduler_test.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/PC/Downloads/crytopz-apk-beta/crytopz/build/CMakeFiles/ZERO_CHECK.dir

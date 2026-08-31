@@ -1,0 +1,54 @@
+{
+    "settings": "Settings",
+    "home": "Home",
+    "markets": "Markets",
+    "trade": "Trade",
+    "bots": "Bots",
+    "learn": "Learn",
+    "portfolio": "Portfolio",
+
+    "appearance": "Appearance",
+    "theme": "Theme",
+
+    "language": "Language",
+    "app_language": "App Language",
+
+    "trading": "Trading",
+    "default_asset": "Default Asset",
+
+    "paper_account": "Paper Account",
+    "starting_balance": "Starting balance: $10,000",
+    "reset_account": "Reset Paper Account",
+
+    "create_bot": "+ Create Bot",
+    "import_bot": "Import Bot",
+    "select_bot": "Select a bot",
+
+    "enable": "Enable",
+    "disable": "Disable",
+    "start": "Start",
+    "stop": "Stop",
+    "delete": "Delete",
+
+    "bot_code": "Bot Code",
+    "save_code": "Save Code",
+
+    "running": "RUNNING",
+    "enabled": "ENABLED",
+    "off": "OFF",
+
+    "create_bot_title": "Create Bot",
+    "enter_bot_name": "Enter bot name:",
+
+    "bot_disabled": "Bot disabled",
+    "enable_first": "Enable the bot first.",
+
+    "code_saved": "Code saved.",
+    "save_failed": "Could not save code.",
+
+    "import": "Import",
+    "import_failed": "Import failed",
+
+    "delete_confirm": "Delete this bot?",
+    "builtin_delete": "Built-in bot cannot be deleted."
+}

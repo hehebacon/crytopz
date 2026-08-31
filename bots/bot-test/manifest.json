@@ -1,0 +1,15 @@
+{
+    "id": "bot-test",
+    "name": "Bot Test",
+    "version": "1.0.0",
+    "api_version": "1",
+    "runtime": "python",
+    "entrypoint": "bot.py",
+    "permissions": [
+        "market.read",
+        "account.read",
+        "order.create"
+    ],
+    "description": "New crytopz paper trading bot",
+    "author": "local"
+}

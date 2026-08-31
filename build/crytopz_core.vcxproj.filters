@@ -1,0 +1,112 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\market.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\account.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\simulator_feed.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\engine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\order_manager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\event_bus.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\simple_bot.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\strategy_manager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\execution.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\bot.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\bot_manager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\bot_snapshot.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\core_bridge.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\bot_api.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\bot_context.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\risk_manager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\bot_executor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\pnl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\live_market_scheduler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\crypto_market_provider.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\winhttp_client.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\live_market_feed.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\asset_registry.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\default_assets.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\core_api.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\trading_account.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\core\src\execution_router.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\account\src\account.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\account\src\account_manager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\account\src\account_storage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\account\src\session_manager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\account\src\credential.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\account\src\session_token.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\PC\Downloads\crytopz-apk-beta\crytopz\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{7043C105-F654-36A1-AE06-8B4B35E9EA65}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

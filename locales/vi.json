@@ -1,0 +1,54 @@
+{
+    "settings": "Cài đặt",
+    "home": "Trang chủ",
+    "markets": "Thị trường",
+    "trade": "Giao dịch",
+    "bots": "Bot",
+    "learn": "Học tập",
+    "portfolio": "Danh mục",
+
+    "appearance": "Giao diện",
+    "theme": "Chủ đề",
+
+    "language": "Ngôn ngữ",
+    "app_language": "Ngôn ngữ ứng dụng",
+
+    "trading": "Giao dịch",
+    "default_asset": "Tài sản mặc định",
+
+    "paper_account": "Tài khoản Paper",
+    "starting_balance": "Số dư ban đầu: $10,000",
+    "reset_account": "Đặt lại tài khoản",
+
+    "create_bot": "+ Tạo Bot",
+    "import_bot": "Nhập Bot",
+    "select_bot": "Chọn một bot",
+
+    "enable": "Bật",
+    "disable": "Tắt",
+    "start": "Chạy",
+    "stop": "Dừng",
+    "delete": "Xóa",
+
+    "bot_code": "Mã Bot",
+    "save_code": "Lưu Code",
+
+    "running": "ĐANG CHẠY",
+    "enabled": "ĐÃ BẬT",
+    "off": "TẮT",
+
+    "create_bot_title": "Tạo Bot",
+    "enter_bot_name": "Nhập tên bot:",
+
+    "bot_disabled": "Bot chưa bật",
+    "enable_first": "Hãy bật bot trước.",
+
+    "code_saved": "Đã lưu code.",
+    "save_failed": "Không thể lưu code.",
+
+    "import": "Nhập",
+    "import_failed": "Nhập thất bại",
+
+    "delete_confirm": "Xóa bot này?",
+    "builtin_delete": "Bot mặc định không thể xóa."
+}

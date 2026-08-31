@@ -1,0 +1,1260 @@
+
+from __future__ import annotations
+
+import customtkinter as ctk
+
+from market_data import (
+    InstrumentRegistry,
+    MarketDataProvider,
+)
+
+
+class MarketsPage(ctk.CTkFrame):
+    """
+    Crytopz Markets Page.
+
+    DESIGN:
+        Market LIST:
+            -> chỉ tải/reload khi bấm nút Refresh.
+
+        Market PRICE:
+            -> tự cập nhật realtime.
+
+        Search:
+            -> chỉ lọc danh sách hiện tại.
+
+        Filter:
+            -> chỉ lọc danh sách hiện tại.
+
+    IMPORTANT:
+        Realtime price updates NEVER rebuild the table.
+    """
+
+    # ============================================================
+    # SETTINGS
+    # ============================================================
+
+    # Giá update mỗi 1 giây.
+    # Không dùng refresh_rows() trong timer.
+    PRICE_UPDATE_MS = 1000
+
+    def __init__(
+        self,
+        parent,
+        app,
+    ):
+        super().__init__(
+            parent,
+            corner_radius=0,
+            fg_color="transparent",
+        )
+
+        self.app = app
+
+        # ========================================================
+        # MARKET DATA
+        # ========================================================
+
+        self.registry = InstrumentRegistry()
+
+        self.provider = MarketDataProvider(
+            getattr(
+                self.app,
+                "engine",
+                None,
+            )
+        )
+
+        # ========================================================
+        # STATE
+        # ========================================================
+
+        self.selected_type = "ALL"
+
+        # Toàn bộ instruments hiện đang load.
+        self.all_instruments = []
+
+        # Các row đang hiển thị.
+        #
+        # symbol -> {
+        #     frame,
+        #     instrument,
+        #     price_label,
+        # }
+        self.rows = {}
+
+        # Chỉ có MỘT timer giá.
+        self._price_job = None
+
+        self._destroyed = False
+
+        # ========================================================
+        # BUILD UI
+        # ========================================================
+
+        self.build_ui()
+
+        # ========================================================
+        # INITIAL LOAD
+        # ========================================================
+
+        # Load danh sách một lần khi page được tạo.
+        self.load_market_list()
+
+        # ========================================================
+        # START REALTIME PRICE LOOP
+        # ========================================================
+
+        self.start_price_updates()
+
+        # ========================================================
+        # DESTROY HANDLER
+        # ========================================================
+
+        self.bind(
+            "<Destroy>",
+            self._on_destroy,
+            add="+",
+        )
+
+    # ============================================================
+    # BUILD UI
+    # ============================================================
+
+    def build_ui(self):
+
+        # ========================================================
+        # TOP HEADER
+        # ========================================================
+
+        header = ctk.CTkFrame(
+            self,
+            fg_color="transparent",
+        )
+
+        header.pack(
+            fill="x",
+            padx=30,
+            pady=(25, 10),
+        )
+
+        # ========================================================
+        # TITLE
+        # ========================================================
+
+        title_group = ctk.CTkFrame(
+            header,
+            fg_color="transparent",
+        )
+
+        title_group.pack(
+            side="left",
+        )
+
+        ctk.CTkLabel(
+            title_group,
+            text="Markets",
+            font=ctk.CTkFont(
+                size=30,
+                weight="bold",
+            ),
+        ).pack(
+            side="left",
+        )
+
+        self.market_count_label = ctk.CTkLabel(
+            title_group,
+            text="0 markets",
+            text_color="gray",
+            font=ctk.CTkFont(
+                size=10,
+            ),
+        )
+
+        self.market_count_label.pack(
+            side="left",
+            padx=(10, 0),
+        )
+
+        # ========================================================
+        # CONTROLS
+        # ========================================================
+
+        controls = ctk.CTkFrame(
+            header,
+            fg_color="transparent",
+        )
+
+        controls.pack(
+            side="right",
+        )
+
+        # --------------------------------------------------------
+        # SEARCH
+        # --------------------------------------------------------
+
+        self.search = ctk.CTkEntry(
+            controls,
+            width=280,
+            height=36,
+            placeholder_text=(
+                "Search symbol, company, exchange..."
+            ),
+        )
+
+        self.search.pack(
+            side="left",
+            padx=(0, 8),
+        )
+
+        # Search chỉ lọc data đã load.
+        self.search.bind(
+            "<KeyRelease>",
+            self._on_search,
+        )
+
+        # --------------------------------------------------------
+        # REFRESH BUTTON
+        # --------------------------------------------------------
+
+        self.refresh_button = ctk.CTkButton(
+            controls,
+            text="↻ Refresh",
+            width=95,
+            height=36,
+            command=self.manual_refresh,
+        )
+
+        self.refresh_button.pack(
+            side="left",
+        )
+
+        # ========================================================
+        # FILTER BAR
+        # ========================================================
+
+        filters = ctk.CTkFrame(
+            self,
+            fg_color="transparent",
+        )
+
+        filters.pack(
+            fill="x",
+            padx=30,
+            pady=(0, 10),
+        )
+
+        self.filter_buttons = {}
+
+        for asset_type in (
+            "ALL",
+            "STOCK",
+            "ETF",
+            "CRYPTO",
+            "FOREX",
+            "INDEX",
+        ):
+
+            button = ctk.CTkButton(
+                filters,
+                text=asset_type,
+                width=82,
+                height=30,
+                corner_radius=6,
+                command=lambda value=asset_type:
+                    self.set_filter(value),
+            )
+
+            button.pack(
+                side="left",
+                padx=(0, 6),
+            )
+
+            self.filter_buttons[
+                asset_type
+            ] = button
+
+        self._update_filter_buttons()
+
+        # ========================================================
+        # TABLE CONTAINER
+        # ========================================================
+
+        self.table = ctk.CTkFrame(
+            self,
+            corner_radius=14,
+        )
+
+        self.table.pack(
+            fill="both",
+            expand=True,
+            padx=25,
+            pady=(0, 15),
+        )
+
+        # ========================================================
+        # COLUMN CONFIG
+        # ========================================================
+
+        # 0 = Asset
+        # 1 = Name
+        # 2 = Exchange
+        # 3 = Type
+        # 4 = Price
+        # 5 = Action
+
+        for column in range(6):
+
+            self.table.grid_columnconfigure(
+                column,
+                weight=(
+                    2
+                    if column == 1
+                    else 1
+                ),
+                uniform="market_column",
+            )
+
+        # ========================================================
+        # TABLE HEADER
+        # ========================================================
+
+        header_row = ctk.CTkFrame(
+            self.table,
+            height=44,
+            fg_color="transparent",
+        )
+
+        header_row.grid(
+            row=0,
+            column=0,
+            columnspan=6,
+            sticky="ew",
+            padx=12,
+            pady=(8, 0),
+        )
+
+        header_row.grid_propagate(
+            False
+        )
+
+        headers = (
+            "Asset",
+            "Name",
+            "Exchange",
+            "Type",
+            "Price",
+            "Action",
+        )
+
+        for column, text in enumerate(
+            headers
+        ):
+
+            header_row.grid_columnconfigure(
+                column,
+                weight=(
+                    2
+                    if column == 1
+                    else 1
+                ),
+                uniform="market_column",
+            )
+
+            ctk.CTkLabel(
+                header_row,
+                text=text,
+                text_color="gray",
+                anchor=(
+                    "w"
+                    if column < 4
+                    else "center"
+                ),
+                font=ctk.CTkFont(
+                    size=10,
+                    weight="bold",
+                ),
+            ).grid(
+                row=0,
+                column=column,
+                sticky="ew",
+                padx=8,
+            )
+
+        # ========================================================
+        # SCROLLABLE MARKET BODY
+        # ========================================================
+
+        self.table.grid_rowconfigure(
+            1,
+            weight=1,
+        )
+
+        self.scroll = ctk.CTkScrollableFrame(
+            self.table,
+            fg_color="transparent",
+            corner_radius=0,
+        )
+
+        self.scroll.grid(
+            row=1,
+            column=0,
+            columnspan=6,
+            sticky="nsew",
+            padx=8,
+            pady=(0, 8),
+        )
+
+        # Same column layout as header.
+
+        for column in range(6):
+
+            self.scroll.grid_columnconfigure(
+                column,
+                weight=(
+                    2
+                    if column == 1
+                    else 1
+                ),
+                uniform="market_column",
+            )
+
+        # ========================================================
+        # STATUS BAR
+        # ========================================================
+
+        self.status_label = ctk.CTkLabel(
+            self.table,
+            text="Ready",
+            text_color="gray",
+            anchor="w",
+            font=ctk.CTkFont(
+                size=9,
+            ),
+        )
+
+        self.status_label.grid(
+            row=2,
+            column=0,
+            columnspan=6,
+            sticky="ew",
+            padx=15,
+            pady=(0, 7),
+        )
+
+    # ============================================================
+    # MARKET LIST LOADING
+    # ============================================================
+
+    def load_market_list(self):
+        """
+        Load market instruments.
+
+        This function is ONLY used for loading/reloading
+        the market LIST.
+
+        It is NOT called by the realtime price timer.
+        """
+
+        try:
+
+            instruments = self.registry.search(
+                query="",
+                asset_type=None,
+            )
+
+            self.all_instruments = list(
+                instruments
+            )
+
+        except Exception as exc:
+
+            self.all_instruments = []
+
+            self.status_label.configure(
+                text=f"Market load error: {exc}",
+            )
+
+        self.apply_local_filters()
+
+    # ============================================================
+    # MANUAL REFRESH
+    # ============================================================
+
+    def manual_refresh(self):
+        """
+        Reload the market LIST.
+
+        This happens ONLY when the user presses Refresh.
+        """
+
+        if self._destroyed:
+            return
+
+        self.refresh_button.configure(
+            state="disabled",
+            text="Loading...",
+        )
+
+        try:
+
+            # Recreate registry.
+
+            self.registry = (
+                InstrumentRegistry()
+            )
+
+            # Update provider engine.
+
+            self.provider.set_engine(
+                getattr(
+                    self.app,
+                    "engine",
+                    None,
+                )
+            )
+
+            # Reload market list.
+
+            self.load_market_list()
+
+            self.status_label.configure(
+                text=(
+                    f"Market list refreshed • "
+                    f"{len(self.all_instruments)} instruments"
+                ),
+            )
+
+        except Exception as exc:
+
+            self.status_label.configure(
+                text=f"Refresh error: {exc}",
+            )
+
+        finally:
+
+            self.refresh_button.configure(
+                state="normal",
+                text="↻ Refresh",
+            )
+
+    # ============================================================
+    # LOCAL SEARCH
+    # ============================================================
+
+    def _on_search(
+        self,
+        _event=None,
+    ):
+
+        """
+        Search DOES NOT reload market data.
+
+        It only filters the instruments already loaded.
+        """
+
+        self.apply_local_filters()
+
+    # ============================================================
+    # FILTER
+    # ============================================================
+
+    def set_filter(
+        self,
+        asset_type: str,
+    ):
+
+        self.selected_type = (
+            str(asset_type)
+            .upper()
+        )
+
+        self._update_filter_buttons()
+
+        # Local filter only.
+        self.apply_local_filters()
+
+    # ============================================================
+
+    def _update_filter_buttons(self):
+
+        for name, button in (
+            self.filter_buttons.items()
+        ):
+
+            if name == self.selected_type:
+
+                button.configure(
+                    fg_color="#2563eb",
+                    hover_color="#1d4ed8",
+                )
+
+            else:
+
+                button.configure(
+                    fg_color="transparent",
+                    hover_color="#202027",
+                    border_width=1,
+                )
+
+    # ============================================================
+    # LOCAL FILTERING
+    # ============================================================
+
+    def apply_local_filters(self):
+        """
+        Filter already-loaded instruments.
+
+        NO network request.
+        NO registry reload.
+        NO market-data reload.
+        """
+
+        query = (
+            self.search
+            .get()
+            .strip()
+            .lower()
+        )
+
+        asset_type = self.selected_type
+
+        visible = []
+
+        for instrument in self.all_instruments:
+
+            # ----------------------------------------------------
+            # Asset type
+            # ----------------------------------------------------
+
+            if (
+                asset_type != "ALL"
+                and str(
+                    instrument.asset_type
+                ).upper()
+                != asset_type
+            ):
+                continue
+
+            # ----------------------------------------------------
+            # Search
+            # ----------------------------------------------------
+
+            if query:
+
+                searchable = " ".join(
+                    [
+                        str(
+                            getattr(
+                                instrument,
+                                "symbol",
+                                "",
+                            )
+                        ),
+                        str(
+                            getattr(
+                                instrument,
+                                "name",
+                                "",
+                            )
+                        ),
+                        str(
+                            getattr(
+                                instrument,
+                                "exchange",
+                                "",
+                            )
+                        ),
+                        str(
+                            getattr(
+                                instrument,
+                                "asset_type",
+                                "",
+                            )
+                        ),
+                    ]
+                ).lower()
+
+                if query not in searchable:
+                    continue
+
+            visible.append(
+                instrument
+            )
+
+        # Rebuild UI rows only.
+        self.render_rows(
+            visible
+        )
+
+    # ============================================================
+    # RENDER ROWS
+    # ============================================================
+
+    def render_rows(
+        self,
+        instruments,
+    ):
+        """
+        Render current filtered list.
+
+        This does NOT reload market data.
+        """
+
+        # --------------------------------------------------------
+        # Remove current rows
+        # --------------------------------------------------------
+
+        for data in list(
+            self.rows.values()
+        ):
+
+            try:
+                data[
+                    "frame"
+                ].destroy()
+
+            except Exception:
+                pass
+
+        self.rows.clear()
+
+        # --------------------------------------------------------
+        # Create new rows
+        # --------------------------------------------------------
+
+        for row_index, instrument in enumerate(
+            instruments
+        ):
+
+            self._create_row(
+                row_index,
+                instrument,
+            )
+
+        # --------------------------------------------------------
+        # Counter
+        # --------------------------------------------------------
+
+        count = len(
+            instruments
+        )
+
+        self.market_count_label.configure(
+            text=f"{count} markets",
+        )
+
+        # --------------------------------------------------------
+        # Update prices immediately.
+        #
+        # IMPORTANT:
+        # No timer is created here.
+        # --------------------------------------------------------
+
+        self.update_prices(
+            schedule_next=False
+        )
+
+    # ============================================================
+    # CREATE ROW
+    # ============================================================
+
+    def _create_row(
+        self,
+        row_index: int,
+        instrument,
+    ):
+
+        frame = ctk.CTkFrame(
+            self.scroll,
+            height=54,
+            corner_radius=7,
+            fg_color="transparent",
+        )
+
+        frame.grid(
+            row=row_index,
+            column=0,
+            columnspan=6,
+            sticky="ew",
+            padx=2,
+            pady=2,
+        )
+
+        frame.grid_propagate(
+            False
+        )
+
+        # --------------------------------------------------------
+        # Same columns as header.
+        # --------------------------------------------------------
+
+        for column in range(6):
+
+            frame.grid_columnconfigure(
+                column,
+                weight=(
+                    2
+                    if column == 1
+                    else 1
+                ),
+                uniform="market_column",
+            )
+
+        # ========================================================
+        # ASSET
+        # ========================================================
+
+        asset_label = ctk.CTkLabel(
+            frame,
+            text=self._display_symbol(
+                instrument.symbol
+            ),
+            anchor="w",
+            font=ctk.CTkFont(
+                size=11,
+                weight="bold",
+            ),
+        )
+
+        asset_label.grid(
+            row=0,
+            column=0,
+            sticky="ew",
+            padx=8,
+        )
+
+        # ========================================================
+        # NAME
+        # ========================================================
+
+        name_label = ctk.CTkLabel(
+            frame,
+            text=str(
+                instrument.name
+            ),
+            anchor="w",
+            text_color="gray",
+            font=ctk.CTkFont(
+                size=10,
+            ),
+        )
+
+        name_label.grid(
+            row=0,
+            column=1,
+            sticky="ew",
+            padx=8,
+        )
+
+        # ========================================================
+        # EXCHANGE
+        # ========================================================
+
+        exchange_label = ctk.CTkLabel(
+            frame,
+            text=str(
+                instrument.exchange
+            ),
+            anchor="w",
+            text_color="gray",
+            font=ctk.CTkFont(
+                size=10,
+            ),
+        )
+
+        exchange_label.grid(
+            row=0,
+            column=2,
+            sticky="ew",
+            padx=8,
+        )
+
+        # ========================================================
+        # TYPE
+        # ========================================================
+
+        type_label = ctk.CTkLabel(
+            frame,
+            text=str(
+                instrument.asset_type
+            ),
+            anchor="w",
+            text_color="gray",
+            font=ctk.CTkFont(
+                size=9,
+            ),
+        )
+
+        type_label.grid(
+            row=0,
+            column=3,
+            sticky="ew",
+            padx=8,
+        )
+
+        # ========================================================
+        # PRICE
+        # ========================================================
+
+        price_label = ctk.CTkLabel(
+            frame,
+            text="—",
+            anchor="e",
+            font=ctk.CTkFont(
+                size=10,
+                weight="bold",
+            ),
+        )
+
+        price_label.grid(
+            row=0,
+            column=4,
+            sticky="ew",
+            padx=8,
+        )
+
+        # ========================================================
+        # ACTION
+        # ========================================================
+
+        action_frame = ctk.CTkFrame(
+            frame,
+            fg_color="transparent",
+        )
+
+        action_frame.grid(
+            row=0,
+            column=5,
+            sticky="ew",
+            padx=5,
+        )
+
+        ctk.CTkButton(
+            action_frame,
+            text="Trade",
+            width=72,
+            height=28,
+            corner_radius=6,
+            command=lambda symbol=instrument.symbol:
+                self.open_trade(symbol),
+        ).pack(
+            anchor="center",
+        )
+
+        # ========================================================
+        # STORE REFERENCES
+        # ========================================================
+
+        self.rows[
+            instrument.symbol
+        ] = {
+            "frame": frame,
+            "instrument": instrument,
+            "price_label": price_label,
+        }
+
+    # ============================================================
+    # REALTIME PRICE SYSTEM
+    # ============================================================
+
+    def start_price_updates(self):
+        """
+        Start exactly ONE realtime price timer.
+        """
+
+        if self._destroyed:
+            return
+
+        # Prevent duplicate timers.
+
+        if self._price_job is not None:
+
+            try:
+                self.after_cancel(
+                    self._price_job
+                )
+
+            except Exception:
+                pass
+
+            self._price_job = None
+
+        self.update_prices(
+            schedule_next=True
+        )
+
+    # ============================================================
+
+    def update_prices(
+        self,
+        schedule_next=True,
+    ):
+        """
+        Update ONLY price labels.
+
+        NEVER:
+            - reload instruments
+            - rebuild market list
+            - create rows
+            - destroy rows
+            - update names
+            - update exchanges
+            - update buttons
+        """
+
+        if self._destroyed:
+            return
+
+        # --------------------------------------------------------
+        # PRICE UPDATE
+        # --------------------------------------------------------
+
+        for symbol, data in list(
+            self.rows.items()
+        ):
+
+            instrument = (
+                data["instrument"]
+            )
+
+            price_label = (
+                data["price_label"]
+            )
+
+            try:
+
+                price = (
+                    self.provider.get_price(
+                        symbol
+                    )
+                )
+
+                price_label.configure(
+                    text=self.format_price(
+                        price,
+                        instrument.currency,
+                    )
+                )
+
+            except Exception:
+
+                # Do not crash the UI because one market
+                # has a bad/missing price.
+
+                try:
+
+                    price_label.configure(
+                        text="—"
+                    )
+
+                except Exception:
+                    pass
+
+        # --------------------------------------------------------
+        # NEXT TIMER
+        # --------------------------------------------------------
+
+        if (
+            schedule_next
+            and not self._destroyed
+        ):
+
+            try:
+
+                self._price_job = self.after(
+                    self.PRICE_UPDATE_MS,
+                    self._scheduled_price_update,
+                )
+
+            except Exception:
+
+                self._price_job = None
+
+    # ============================================================
+
+    def _scheduled_price_update(self):
+        """
+        Timer callback.
+
+        It ONLY updates prices.
+        It NEVER reloads the market list.
+        """
+
+        self._price_job = None
+
+        if self._destroyed:
+            return
+
+        self.update_prices(
+            schedule_next=True
+        )
+
+    # ============================================================
+    # TRADE
+    # ============================================================
+
+    def open_trade(
+        self,
+        symbol: str,
+    ):
+
+        self.app.show_page(
+            "Trade"
+        )
+
+        trade = self.app.pages.get(
+            "Trade"
+        )
+
+        if (
+            trade
+            and hasattr(
+                trade,
+                "change_symbol",
+            )
+        ):
+
+            trade.change_symbol(
+                symbol
+            )
+
+    # ============================================================
+    # SYMBOL FORMAT
+    # ============================================================
+
+    @staticmethod
+    def _display_symbol(
+        symbol: str,
+    ) -> str:
+
+        symbol = str(
+            symbol
+        ).upper()
+
+        # BTCUSDT
+        # ->
+        # BTC / USDT
+
+        if (
+            symbol.endswith("USDT")
+            and len(symbol) > 4
+        ):
+
+            return (
+                f"{symbol[:-4]} / USDT"
+            )
+
+        # EURUSD
+        # ->
+        # EUR / USD
+
+        if (
+            symbol.endswith("USD")
+            and len(symbol) > 3
+        ):
+
+            return (
+                f"{symbol[:-3]} / USD"
+            )
+
+        return symbol
+
+    # ============================================================
+    # PRICE FORMAT
+    # ============================================================
+
+    @staticmethod
+    def format_price(
+        price,
+        currency: str,
+    ) -> str:
+
+        if price is None:
+            return "—"
+
+        try:
+
+            value = float(
+                price
+            )
+
+        except (
+            ValueError,
+            TypeError,
+        ):
+
+            return "—"
+
+        currency = str(
+            currency
+        ).upper()
+
+        symbols = {
+            "USD": "$",
+            "USDT": "$",
+            "EUR": "€",
+            "GBP": "£",
+            "JPY": "¥",
+            "HKD": "HK$",
+            "CNY": "¥",
+            "KRW": "₩",
+            "SGD": "S$",
+            "AUD": "A$",
+            "CAD": "C$",
+        }
+
+        prefix = symbols.get(
+            currency,
+            f"{currency} ",
+        )
+
+        # --------------------------------------------------------
+        # Format
+        # --------------------------------------------------------
+
+        if abs(value) >= 1:
+
+            formatted = (
+                f"{value:,.2f}"
+            )
+
+        else:
+
+            formatted = (
+                f"{value:,.6f}"
+            )
+
+        return (
+            f"{prefix}{formatted}"
+        )
+
+    # ============================================================
+    # DESTROY
+    # ============================================================
+
+    def _on_destroy(
+        self,
+        event,
+    ):
+
+        if event.widget is not self:
+            return
+
+        self._destroyed = True
+
+        # Cancel the ONLY timer.
+
+        if self._price_job is not None:
+
+            try:
+
+                self.after_cancel(
+                    self._price_job
+                )
+
+            except Exception:
+                pass
+
+            self._price_job = None
+

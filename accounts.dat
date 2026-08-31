@@ -1,0 +1,11 @@
+CRYPTOPZ_ACCOUNTS_V1
+COUNT 1
+ACCOUNT
+ID user_001
+USERNAME test_user
+LANGUAGE vi
+THEME dark
+LINKED 2
+linked_crypto_001	demo_exchange	crypto	1
+linked_stock_001	demo_broker	stocks	1
+END_ACCOUNT

@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Solution>
+	<Configurations>
+		<BuildType Name="Debug"/>
+		<BuildType Name="Release"/>
+		<BuildType Name="MinSizeRel"/>
+		<BuildType Name="RelWithDebInfo"/>
+		<Platform Name="x64"/>
+	</Configurations>
+	<Project Path="ALL_BUILD.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="0884b32e-b698-377b-8608-136d5e15a407" DefaultStartup="true">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="crytopz_asset_registry_test.vcxproj"/>
+		<BuildDependency Project="crytopz_bot.vcxproj"/>
+		<BuildDependency Project="crytopz_bridge.vcxproj"/>
+		<BuildDependency Project="crytopz_bridge_test.vcxproj"/>
+		<BuildDependency Project="crytopz_core.vcxproj"/>
+		<BuildDependency Project="crytopz_core_api_regression_test.vcxproj"/>
+		<BuildDependency Project="crytopz_core_api_test.vcxproj"/>
+		<BuildDependency Project="crytopz_core_test.vcxproj"/>
+		<BuildDependency Project="crytopz_crypto_provider_test.vcxproj"/>
+		<BuildDependency Project="crytopz_json_test.vcxproj"/>
+		<BuildDependency Project="crytopz_live_crypto_test.vcxproj"/>
+		<BuildDependency Project="crytopz_live_market_feed_test.vcxproj"/>
+		<BuildDependency Project="crytopz_live_market_scheduler_test.vcxproj"/>
+		<BuildDependency Project="crytopz_market_data_test.vcxproj"/>
+		<BuildDependency Project="crytopz_simulator.vcxproj"/>
+		<Build Solution="Debug|*" Project="false"/>
+		<Build Solution="Release|*" Project="false"/>
+		<Build Solution="MinSizeRel|*" Project="false"/>
+		<Build Solution="RelWithDebInfo|*" Project="false"/>
+	</Project>
+	<Project Path="ZERO_CHECK.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="22ee12aa-058f-3686-8542-93ed316d879e"/>
+	<Project Path="crytopz_asset_registry_test.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="e917d3cf-0b87-3c93-bd95-e8bd35874983">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="crytopz_core.vcxproj"/>
+	</Project>
+	<Project Path="crytopz_bot.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="b27aac10-e632-3d9a-b1d7-cff24b6986d6">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="crytopz_core.vcxproj"/>
+	</Project>
+	<Project Path="crytopz_bridge.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="ddc702cb-d186-3181-91e5-c87f55c3c6e6">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="crytopz_core.vcxproj"/>
+	</Project>
+	<Project Path="crytopz_bridge_test.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="91b77cf0-1194-3c86-a785-e81a023888d0">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="crytopz_core.vcxproj"/>
+	</Project>
+	<Project Path="crytopz_core.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="5e9937d1-3c3c-3a2e-9e68-79f013ec984f">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+	</Project>
+	<Project Path="crytopz_core_api_regression_test.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="665264fe-b511-3546-b524-b32207acc90d">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="crytopz_core.vcxproj"/>
+	</Project>
+	<Project Path="crytopz_core_api_test.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="2c4ab72e-56d5-3f3a-8a14-bdd102adbba0">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="crytopz_core.vcxproj"/>
+	</Project>
+	<Project Path="crytopz_core_test.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="e714022e-0004-380f-a541-070239f0eca6">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="crytopz_core.vcxproj"/>
+	</Project>
+	<Project Path="crytopz_crypto_provider_test.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="e8d06fbb-9ee3-374e-bd97-9bca3829879a">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="crytopz_core.vcxproj"/>
+	</Project>
+	<Project Path="crytopz_json_test.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="d635c424-4f4f-3eda-8a25-055c7c931666">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="crytopz_core.vcxproj"/>
+	</Project>
+	<Project Path="crytopz_live_crypto_test.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="feb88357-74ad-3066-b0b6-3844b414fc44">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="crytopz_core.vcxproj"/>
+	</Project>
+	<Project Path="crytopz_live_market_feed_test.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="bfb4160e-492d-3adb-bcee-ae451a5c9ecb">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="crytopz_core.vcxproj"/>
+	</Project>
+	<Project Path="crytopz_live_market_scheduler_test.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="f9b1f2e6-d139-3b7e-af4b-4d56eab41bcd">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="crytopz_core.vcxproj"/>
+	</Project>
+	<Project Path="crytopz_market_data_test.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="88d6257c-145e-371c-93e5-05a12f178029">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="crytopz_core.vcxproj"/>
+	</Project>
+	<Project Path="crytopz_simulator.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="3eb7e0bf-0195-37f8-8b8f-4cc6607363f6">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="crytopz_bot.vcxproj"/>
+		<BuildDependency Project="crytopz_core.vcxproj"/>
+	</Project>
+</Solution>
