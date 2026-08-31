@@ -1,0 +1,50 @@
+
+        # ========================================================
+        # EXPANDED MARKET UNIVERSE
+        # ========================================================
+
+        extra_instruments = [
+            # US STOCKS
+            Instrument("AMD", "Advanced Micro Devices", "STOCK", "NASDAQ", "US", "USD"),
+            Instrument("INTC", "Intel Corporation", "STOCK", "NASDAQ", "US", "USD"),
+            Instrument("ORCL", "Oracle Corporation", "STOCK", "NYSE", "US", "USD"),
+            Instrument("NFLX", "Netflix Inc.", "STOCK", "NASDAQ", "US", "USD"),
+            Instrument("AVGO", "Broadcom Inc.", "STOCK", "NASDAQ", "US", "USD"),
+            Instrument("COST", "Costco Wholesale Corporation", "STOCK", "NASDAQ", "US", "USD"),
+            Instrument("JPM", "JPMorgan Chase & Co.", "STOCK", "NYSE", "US", "USD"),
+            Instrument("V", "Visa Inc.", "STOCK", "NYSE", "US", "USD"),
+            Instrument("MA", "Mastercard Incorporated", "STOCK", "NYSE", "US", "USD"),
+            Instrument("KO", "The Coca-Cola Company", "STOCK", "NYSE", "US", "USD"),
+            Instrument("PEP", "PepsiCo Inc.", "STOCK", "NASDAQ", "US", "USD"),
+            Instrument("DIS", "The Walt Disney Company", "STOCK", "NYSE", "US", "USD"),
+            Instrument("UBER", "Uber Technologies Inc.", "STOCK", "NYSE", "US", "USD"),
+            Instrument("CRM", "Salesforce Inc.", "STOCK", "NYSE", "US", "USD"),
+            Instrument("ADBE", "Adobe Inc.", "STOCK", "NASDAQ", "US", "USD"),
+
+            # ETFs
+            Instrument("DIA", "SPDR Dow Jones Industrial Average ETF", "ETF", "NYSE", "US", "USD"),
+            Instrument("IWM", "iShares Russell 2000 ETF", "ETF", "NYSE", "US", "USD"),
+            Instrument("VTI", "Vanguard Total Stock Market ETF", "ETF", "NYSE", "US", "USD"),
+            Instrument("VOO", "Vanguard S&P 500 ETF", "ETF", "NYSE", "US", "USD"),
+            Instrument("GLD", "SPDR Gold Shares", "ETF", "NYSE", "US", "USD"),
+
+            # CRYPTO
+            Instrument("DOGEUSDT", "Dogecoin / Tether", "CRYPTO", "CRYPTO", "GLOBAL", "USDT"),
+            Instrument("AVAXUSDT", "Avalanche / Tether", "CRYPTO", "CRYPTO", "GLOBAL", "USDT"),
+            Instrument("LINKUSDT", "Chainlink / Tether", "CRYPTO", "CRYPTO", "GLOBAL", "USDT"),
+            Instrument("DOTUSDT", "Polkadot / Tether", "CRYPTO", "CRYPTO", "GLOBAL", "USDT"),
+            Instrument("MATICUSDT", "Polygon / Tether", "CRYPTO", "CRYPTO", "GLOBAL", "USDT"),
+            Instrument("LTCUSDT", "Litecoin / Tether", "CRYPTO", "CRYPTO", "GLOBAL", "USDT"),
+            Instrument("TRXUSDT", "TRON / Tether", "CRYPTO", "CRYPTO", "GLOBAL", "USDT"),
+
+            # FOREX
+            Instrument("AUDUSD", "Australian Dollar / US Dollar", "FOREX", "FX", "GLOBAL", "USD"),
+            Instrument("USDCAD", "US Dollar / Canadian Dollar", "FOREX", "FX", "GLOBAL", "CAD"),
+            Instrument("USDCHF", "US Dollar / Swiss Franc", "FOREX", "FX", "GLOBAL", "CHF"),
+            Instrument("NZDUSD", "New Zealand Dollar / US Dollar", "FOREX", "FX", "GLOBAL", "USD"),
+
+            # INDEX
+            Instrument("RUT", "Russell 2000 Index", "INDEX", "INDEX", "US", "USD"),
+        ]
+
+        self.register_many(extra_instruments)
