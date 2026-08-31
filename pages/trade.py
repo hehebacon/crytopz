@@ -103,6 +103,182 @@ class AccountRegistry:
         return provider() if callable(provider) else None
 
 
+class AssetRegistry:
+    """Small registry for Trade asset metadata.
+
+    The registry is intentionally generic so future asset families
+    (stocks, forex, etc.) can be added without rewriting the Trade UI.
+    """
+
+    def __init__(self):
+        self._by_symbol = {}
+        self._groups = {
+            "crypto": [],
+            "stock": [],
+            "forex": [],
+        }
+
+        self.register_asset(
+            "BTCUSDT",
+            "Bitcoin",
+            asset_type="crypto",
+            quote="USDT",
+            enabled=True,
+        )
+        self.register_asset(
+            "ETHUSDT",
+            "Ethereum",
+            asset_type="crypto",
+            quote="USDT",
+            enabled=True,
+        )
+        self.register_asset(
+            "SOLUSDT",
+            "Solana",
+            asset_type="crypto",
+            quote="USDT",
+            enabled=True,
+        )
+        self.register_asset(
+            "BNBUSDT",
+            "BNB",
+            asset_type="crypto",
+            quote="USDT",
+            enabled=True,
+        )
+        self.register_asset(
+            "XRPUSDT",
+            "XRP",
+            asset_type="crypto",
+            quote="USDT",
+            enabled=True,
+        )
+
+        self.register_asset(
+            "AAPL",
+            "Apple Inc.",
+            asset_type="stock",
+            quote="USD",
+            enabled=False,
+        )
+        self.register_asset(
+            "MSFT",
+            "Microsoft",
+            asset_type="stock",
+            quote="USD",
+            enabled=False,
+        )
+        self.register_asset(
+            "NVDA",
+            "NVIDIA",
+            asset_type="stock",
+            quote="USD",
+            enabled=False,
+        )
+        self.register_asset(
+            "TSLA",
+            "Tesla",
+            asset_type="stock",
+            quote="USD",
+            enabled=False,
+        )
+
+        self.register_asset(
+            "EURUSD",
+            "Euro / US Dollar",
+            asset_type="forex",
+            quote="USD",
+            enabled=False,
+        )
+        self.register_asset(
+            "GBPUSD",
+            "British Pound / US Dollar",
+            asset_type="forex",
+            quote="USD",
+            enabled=False,
+        )
+
+    @staticmethod
+    def normalize_symbol(symbol):
+        return str(symbol or "").strip().upper().replace(" ", "")
+
+    def register_asset(self, symbol, name, asset_type="crypto", quote="USDT", enabled=True):
+        normalized = self.normalize_symbol(symbol)
+        if not normalized:
+            return None
+
+        asset = {
+            "symbol": normalized,
+            "name": str(name or normalized),
+            "asset_type": str(asset_type or "crypto").lower(),
+            "quote": str(quote or "USDT").upper(),
+            "enabled": bool(enabled),
+            "registered": True,
+            "market_data_available": bool(enabled),
+            "paper_tradable": bool(enabled),
+            "real_tradable": False,
+        }
+
+        self._by_symbol[normalized] = asset
+        group = asset["asset_type"]
+        if group not in self._groups:
+            self._groups[group] = []
+        if normalized not in self._groups[group]:
+            self._groups[group].append(normalized)
+        return asset
+
+    def sync_from_engine(self, engine):
+        supported = set()
+        if engine is not None:
+            raw = getattr(engine, "supported_symbols", None)
+            if isinstance(raw, (list, tuple, set)):
+                supported = {self.normalize_symbol(item) for item in raw if str(item).strip()}
+
+        for symbol, asset in self._by_symbol.items():
+            asset["registered"] = True
+            asset["enabled"] = bool(asset.get("enabled", True))
+
+            if not supported:
+                asset["market_data_available"] = asset["asset_type"] == "crypto"
+            else:
+                asset["market_data_available"] = symbol in supported
+
+            asset["paper_tradable"] = asset["market_data_available"]
+            asset["real_tradable"] = False
+
+        return self
+
+    def visible_assets(self, query=""):
+        needle = self.normalize_symbol(query).lower()
+        groups = []
+
+        for group_name in ("crypto", "stock", "forex"):
+            assets = []
+            for symbol in self._groups.get(group_name, []):
+                asset = self._by_symbol.get(symbol)
+                if not asset or not asset["enabled"]:
+                    continue
+                if needle:
+                    haystack = f"{asset['symbol']} {asset['name']}".lower()
+                    if needle not in haystack:
+                        continue
+                assets.append(asset)
+
+            if assets:
+                groups.append((group_name, assets))
+
+        return groups
+
+    def add_asset(self, symbol, name, asset_type="crypto", quote="USDT", enabled=True):
+        asset = self.register_asset(symbol, name, asset_type=asset_type, quote=quote, enabled=enabled)
+        if asset is None:
+            return None
+        return asset
+
+    def get(self, symbol):
+        return self._by_symbol.get(self.normalize_symbol(symbol))
+
+
 class TradePage(ctk.CTkFrame):
 
     def __init__(self, parent, app):
@@ -127,6 +303,9 @@ class TradePage(ctk.CTkFrame):
 
         self.symbol = "BTCUSDT"
         self.side = "BUY"
+        self.trading_mode = "paper"
+        self.real_trading_connected = False
+        self.asset_registry = AssetRegistry()
 
         self.refresh_interval = 33
         self.refresh_job = None
@@ -1142,38 +1321,63 @@ class TradePage(ctk.CTkFrame):
 
         self.add_label(
             panel,
-            "Asset",
+            "Trading Mode",
         )
 
-        symbols = getattr(
-            self.app.engine,
-            "supported_symbols",
-            [
-                "BTCUSDT",
-                "ETHUSDT",
-                "SOLUSDT",
-                "BNBUSDT",
-                "XRPUSDT",
-                "ADAUSDT",
-            ],
-        )
-
-        self.symbol_menu = ctk.CTkOptionMenu(
+        self.trading_mode_menu = ctk.CTkOptionMenu(
             panel,
-            values=symbols,
+            values=["Paper Trading", "Real Trading"],
             height=30,
             corner_radius=6,
-            command=self.change_symbol,
+            command=self.change_trading_mode,
         )
 
-        self.symbol_menu.set(
-            self.symbol
-        )
-
-        self.symbol_menu.pack(
+        self.trading_mode_menu.set("Paper Trading")
+        self.trading_mode_menu.pack(
             fill="x",
             padx=14,
         )
+
+        self.add_label(
+            panel,
+            "Asset",
+        )
+
+        self.asset_search = ctk.CTkEntry(
+            panel,
+            height=30,
+            corner_radius=6,
+            placeholder_text="Search asset...",
+            fg_color=self.card_2,
+            border_color=self.border,
+            text_color=self.text,
+        )
+        self.asset_search.pack(
+            fill="x",
+            padx=14,
+            pady=(0, 6),
+        )
+        self.asset_search.bind(
+            "<KeyRelease>",
+            self.on_asset_search,
+        )
+
+        self.asset_selector = ctk.CTkScrollableFrame(
+            panel,
+            height=190,
+            corner_radius=8,
+            fg_color=self.card_2,
+            border_width=1,
+            border_color=self.border,
+        )
+        self.asset_selector.pack(
+            fill="x",
+            padx=14,
+            pady=(0, 6),
+        )
+
+        self.asset_rows = {}
+        self.refresh_asset_selector()
 
         self.add_label(
             panel,
@@ -1387,11 +1591,148 @@ class TradePage(ctk.CTkFrame):
             pady=(4, 2),
         )
 
+    def add_asset(self, symbol, name, asset_type="crypto", quote="USDT", enabled=True):
+        asset = self.asset_registry.add_asset(symbol, name, asset_type=asset_type, quote=quote, enabled=enabled)
+        if asset is None:
+            return None
+
+        if hasattr(self, "asset_search"):
+            self.refresh_asset_selector()
+        return asset
+
+    def on_asset_search(self, _event=None):
+        self.refresh_asset_selector()
+
+    def refresh_asset_selector(self):
+        try:
+            engine = self.engine()
+        except Exception:
+            engine = None
+
+        self.asset_registry.sync_from_engine(engine)
+
+        for child in self.asset_selector.winfo_children():
+            child.destroy()
+
+        self.asset_rows.clear()
+
+        query = (self.asset_search.get() if hasattr(self, "asset_search") else "").strip()
+        groups = self.asset_registry.visible_assets(query)
+
+        if not groups:
+            empty = ctk.CTkLabel(
+                self.asset_selector,
+                text="No matching assets",
+                text_color=self.muted,
+                font=ctk.CTkFont(size=9),
+            )
+            empty.pack(anchor="w", padx=8, pady=8)
+            return
+
+        for group_name, assets in groups:
+            header = ctk.CTkLabel(
+                self.asset_selector,
+                text=group_name.title(),
+                text_color=self.muted,
+                font=ctk.CTkFont(size=8, weight="bold"),
+            )
+            header.pack(anchor="w", padx=8, pady=(8, 4))
+
+            for asset in assets:
+                symbol = asset["symbol"]
+                name = asset["name"]
+                row = ctk.CTkButton(
+                    self.asset_selector,
+                    text=f"{symbol}  {name}",
+                    anchor="w",
+                    height=28,
+                    corner_radius=6,
+                    fg_color=(self.blue if symbol == self.symbol else "transparent"),
+                    hover_color=self.blue_hover,
+                    text_color=self.text,
+                    font=ctk.CTkFont(size=9),
+                    command=lambda value=symbol: self.change_symbol(value),
+                )
+                row.pack(fill="x", padx=8, pady=2)
+                self.asset_rows[symbol] = row
+
     def show_error(self, message):
         self.status.configure(
             text=str(message),
             text_color=self.red,
         )
+
+    def normalize_symbol(self, symbol):
+        text = str(symbol or "").strip().upper()
+        return text.replace(" ", "")
+
+    def get_supported_assets(self):
+        try:
+            engine = self.engine()
+        except Exception:
+            engine = None
+
+        try:
+            self.asset_registry.sync_from_engine(engine)
+        except Exception:
+            pass
+
+        symbols = []
+        for symbol, asset in self.asset_registry._by_symbol.items():
+            if not asset.get("enabled", True):
+                continue
+            symbols.append(symbol)
+
+        if engine is not None:
+            raw_symbols = getattr(engine, "supported_symbols", None)
+            if isinstance(raw_symbols, (list, tuple, set)):
+                normalized = []
+                for item in raw_symbols:
+                    candidate = self.normalize_symbol(item)
+                    if candidate and candidate not in normalized:
+                        normalized.append(candidate)
+                ordered = [symbol for symbol in normalized if symbol in symbols]
+                ordered.extend(symbol for symbol in symbols if symbol not in ordered)
+                return ordered
+
+        return symbols
+
+    def refresh_symbol_options(self):
+        supported = self.get_supported_assets()
+        if not supported:
+            supported = list(self.asset_registry._by_symbol.keys())
+
+        if self.symbol not in supported:
+            self.symbol = supported[0] if supported else "BTCUSDT"
+
+        self.refresh_asset_selector()
+
+    def set_trading_mode(self, mode_name):
+        mode_name = str(mode_name or "").strip().lower()
+
+        if "real" in mode_name:
+            if not self.real_trading_connected:
+                self.trading_mode = "paper"
+                self.trading_mode_menu.set("Paper Trading")
+                self.show_error(
+                    "Real Trading is locked. Enable the connection capability first."
+                )
+                self.update_execute_button()
+                return
+            self.trading_mode = "real"
+        else:
+            self.trading_mode = "paper"
+
+        self.status.configure(
+            text=(
+                "Real Trading ready" if self.trading_mode == "real" else "Paper Trading ready"
+            ),
+            text_color=(self.blue if self.trading_mode == "real" else self.green),
+        )
+        self.update_execute_button()
+
+    def change_trading_mode(self, mode_name):
+        self.set_trading_mode(mode_name)
 
     # ================================================================
     # SIDE / SYMBOL / TIMEFRAME
@@ -1434,25 +1775,43 @@ class TradePage(ctk.CTkFrame):
         self.update_cost()
 
     def change_symbol(self, symbol):
-        self.symbol = str(
-            symbol
-        ).strip().upper()
+        normalized = self.normalize_symbol(symbol)
 
-        if self.symbol.endswith(
-            "USDT"
-        ):
-            self.symbol_label.configure(
-                text=(
-                    f"{self.symbol[:-4]} / USDT"
-                )
+        if not normalized:
+            normalized = self.symbol or "BTCUSDT"
+
+        asset = self.asset_registry.get(normalized)
+        if asset is None:
+            self.asset_registry.register_asset(
+                normalized,
+                normalized,
+                asset_type="crypto",
+                quote="USDT",
+                enabled=True,
             )
+
+        self.symbol = normalized
+        print("[TRADE] Asset changed:", self.symbol)
+
+        if hasattr(self, "asset_search"):
+            try:
+                self.asset_search.delete(0, "end")
+            except Exception:
+                pass
+        self.refresh_asset_selector()
+
+        if self.symbol.endswith("USDT"):
+            self.symbol_label.configure(text=f"{self.symbol[:-4]} / USDT")
         else:
-            self.symbol_label.configure(
-                text=self.symbol
-            )
+            self.symbol_label.configure(text=self.symbol)
 
+        self.last_order_count = -1
         self.reset_chart_state()
         self.load_chart_cache()
+        self.update_order_history()
+        self.calculate_analysis()
+        self.update_cost()
+        self.update_execute_button()
         self.refresh()
 
     def change_timeframe(self, timeframe):
@@ -1495,41 +1854,18 @@ class TradePage(ctk.CTkFrame):
 
     def change_order_type(self, order_type):
         if order_type == "Limit":
-            self.limit_price.configure(
-                state="normal"
-            )
-
-            self.execute_button.configure(
-                state="disabled"
-            )
-
+            self.limit_price.configure(state="normal")
+            self.execute_button.configure(state="disabled")
             self.status.configure(
-                text=(
-                    "Limit orders are not "
-                    "available yet."
-                ),
+                text="Limit orders are unavailable for the current backend.",
                 text_color="#fbbf24",
             )
-
         else:
-            self.limit_price.delete(
-                0,
-                "end",
-            )
+            self.limit_price.delete(0, "end")
+            self.limit_price.configure(state="disabled")
+            self.status.configure(text="Ready", text_color=self.muted)
 
-            self.limit_price.configure(
-                state="disabled"
-            )
-
-            self.execute_button.configure(
-                state="normal"
-            )
-
-            self.status.configure(
-                text="Ready",
-                text_color=self.muted,
-            )
-
+        self.update_execute_button()
         self.update_cost()
 
     # ================================================================
@@ -1731,49 +2067,42 @@ class TradePage(ctk.CTkFrame):
             )
 
     def execute(self):
+        if self.trading_mode == "real":
+            if not self.real_trading_connected:
+                self.show_error(
+                    "Real Trading is locked. Connect a real capability layer before placing a live order."
+                )
+                return
+            self.show_error(
+                "Real Trading is not available in the current build. Use Paper Trading."
+            )
+            return
+
         if self.order_type.get() != "Market":
             self.show_error(
-                "Limit orders are not available yet."
+                "Limit orders are unavailable for the current backend."
             )
             return
 
         try:
-            quantity = float(
-                self.quantity.get()
-            )
-        except (
-            ValueError,
-            TypeError,
-        ):
-            self.show_error(
-                "Invalid quantity."
-            )
+            quantity = float(self.quantity.get())
+        except (ValueError, TypeError):
+            self.show_error("Invalid quantity.")
             return
 
         if quantity <= 0:
-            self.show_error(
-                "Quantity must be greater than 0."
-            )
+            self.show_error("Quantity must be greater than 0.")
             return
 
         engine = self.engine()
 
         try:
             if self.side == "BUY":
-                order_id = engine.buy(
-                    self.symbol,
-                    quantity,
-                )
+                order_id = engine.buy(self.symbol, quantity)
             else:
-                order_id = engine.sell(
-                    self.symbol,
-                    quantity,
-                )
-
+                order_id = engine.sell(self.symbol, quantity)
         except Exception as error:
-            self.show_error(
-                str(error)
-            )
+            self.show_error(str(error))
             return
 
         self.status.configure(
@@ -1785,11 +2114,7 @@ class TradePage(ctk.CTkFrame):
             text_color=self.green,
         )
 
-        self.quantity.delete(
-            0,
-            "end",
-        )
-
+        self.quantity.delete(0, "end")
         self.refresh()
         self.refresh_other_pages()
 
@@ -3428,7 +3753,7 @@ class TradePage(ctk.CTkFrame):
 
         if len(candles) < 2:
             self.analysis_label.configure(
-                text="Not enough data",
+                text="Insufficient data",
                 text_color=self.muted,
             )
             return
@@ -3685,8 +4010,10 @@ class TradePage(ctk.CTkFrame):
             ),
         )
 
+        self.refresh_symbol_options()
         self.last_order_count = -1
         self.reset_chart_state()
+        self.load_chart_cache()
         self.refresh()
 
     def account_stat(
@@ -3743,104 +4070,45 @@ class TradePage(ctk.CTkFrame):
         except Exception:
             return
 
-        count = len(
-            orders
-        )
+        displayed_orders = []
+        for order in orders:
+            if not isinstance(order, dict):
+                continue
+            if self.normalize_symbol(order.get("symbol", "")) != self.symbol:
+                continue
+            displayed_orders.append(order)
 
-        self.order_count_label.configure(
-            text=f"{count} orders"
-        )
+        count = len(displayed_orders)
+
+        self.order_count_label.configure(text=f"{count} orders")
 
         if count == self.last_order_count:
             return
 
         self.last_order_count = count
 
-        self.orders_text.configure(
-            state="normal"
-        )
+        self.orders_text.configure(state="normal")
+        self.orders_text.delete("1.0", "end")
 
-        self.orders_text.delete(
-            "1.0",
-            "end",
-        )
-
-        if not orders:
-            self.orders_text.insert(
-                "end",
-                "No orders yet.",
-            )
-
+        if not displayed_orders:
+            self.orders_text.insert("end", "No orders for this asset yet.")
         else:
-            for order in reversed(
-                orders[-6:]
-            ):
-                side_value = order.get(
-                    "side",
-                    0,
-                )
-
-                status_value = order.get(
-                    "status",
-                    0,
-                )
-
-                side = (
-                    "BUY"
-                    if side_value == 0
-                    else "SELL"
-                )
-
-                status = str(
-                    status_value
-                )
-
-                symbol = order.get(
-                    "symbol",
-                    "",
-                )
-
-                quantity = float(
-                    order.get(
-                        "quantity",
-                        0.0,
-                    )
-                )
-
-                price = float(
-                    order.get(
-                        "price",
-                        0.0,
-                    )
-                )
-
-                order_id = order.get(
-                    "id",
-                    0,
-                )
-
-                timestamp = order.get(
-                    "timestamp",
-                    order.get(
-                        "time",
-                        None,
-                    ),
-                )
+            for order in reversed(displayed_orders[-6:]):
+                side_value = order.get("side", 0)
+                status_value = order.get("status", 0)
+                side = "BUY" if side_value == 0 else "SELL"
+                status = str(status_value)
+                symbol = self.normalize_symbol(order.get("symbol", ""))
+                quantity = float(order.get("quantity", 0.0))
+                price = float(order.get("price", 0.0))
+                order_id = order.get("id", 0)
+                timestamp = order.get("timestamp", order.get("time", None))
 
                 if timestamp:
                     try:
-                        if (
-                            timestamp
-                            > 10_000_000_000
-                        ):
+                        if timestamp > 10_000_000_000:
                             timestamp /= 1000
-
-                        order_time = time.strftime(
-                            "%H:%M:%S",
-                            time.localtime(
-                                timestamp
-                            ),
-                        )
+                        order_time = time.strftime("%H:%M:%S", time.localtime(timestamp))
                     except Exception:
                         order_time = "--:--:--"
                 else:
@@ -3859,47 +4127,33 @@ class TradePage(ctk.CTkFrame):
                     ),
                 )
 
-        self.orders_text.configure(
-            state="disabled"
-        )
+        self.orders_text.configure(state="disabled")
 
     # ================================================================
     # EXECUTE BUTTON
     # ================================================================
 
     def update_execute_button(self):
-        enabled = (
-            self.order_type.get()
-            == "Market"
-        )
+        market_ready = self.order_type.get() == "Market"
+        real_locked = self.trading_mode == "real" and not self.real_trading_connected
+        price_available = self.current_price() > 0
+        enabled = market_ready and not real_locked and price_available
 
         base = (
             self.symbol[:-4]
-            if self.symbol.endswith(
-                "USDT"
-            )
+            if self.symbol.endswith("USDT")
             else self.symbol
         )
 
         self.execute_button.configure(
-            text=(
-                f"{self.side} {base}"
-            ),
+            text=(f"{self.side} {base}"),
             fg_color=(
-                self.green_hover
-                if self.side == "BUY"
-                else self.red_hover
+                self.green_hover if self.side == "BUY" else self.red_hover
             ),
             hover_color=(
-                "#15803d"
-                if self.side == "BUY"
-                else "#b91c1c"
+                "#15803d" if self.side == "BUY" else "#b91c1c"
             ),
-            state=(
-                "normal"
-                if enabled
-                else "disabled"
-            ),
+            state="normal" if enabled else "disabled",
         )
 
     # ================================================================
@@ -3968,6 +4222,12 @@ class TradePage(ctk.CTkFrame):
                     file
                 )
 
+            if str(data.get("symbol", "")).upper() != self.symbol.upper():
+                return
+
+            if str(data.get("timeframe", "")).lower() != str(self.selected_timeframe).lower():
+                return
+
             cached = data.get(
                 "candles",
                 [],
@@ -4029,186 +4289,96 @@ class TradePage(ctk.CTkFrame):
         if self.destroyed:
             return
 
-        try:
-            engine = self.engine()
+        symbol = self.symbol
 
-            price = float(
-                engine.get_price(
-                    self.symbol
-                )
-            )
-
-            previous_price = (
-                self.last_price
-            )
-
-            self.update_candles(
-                price
-            )
-
-            self.price_label.configure(
-                text=f"${price:,.2f}"
-            )
-
-            if (
-                previous_price is not None
-                and previous_price > 0
-            ):
-                change = (
-                    (
-                        price
-                        - previous_price
-                    )
-                    / previous_price
-                    * 100.0
-                )
-
-                if change > 0:
-                    self.price_change_label.configure(
-                        text=f"+{change:.3f}%",
-                        text_color=self.green,
-                    )
-
-                elif change < 0:
-                    self.price_change_label.configure(
-                        text=f"{change:.3f}%",
-                        text_color=self.red,
-                    )
-
-                else:
-                    self.price_change_label.configure(
-                        text="0.000%",
-                        text_color=self.muted,
-                    )
-
+        if hasattr(self, "asset_search"):
             try:
-                running = (
-                    engine.live_market_running()
-                )
-
-                interval = (
-                    engine.live_market_interval_ms()
-                )
-
-                self.live_label.configure(
-                    text=(
-                        "● LIVE"
-                        if running
-                        else "● OFFLINE"
-                    ),
-                    text_color=(
-                        self.green
-                        if running
-                        else self.red
-                    ),
-                )
-
-                self.market_interval_label.configure(
-                    text=(
-                        f"Core: {interval} ms"
-                    )
-                )
-
+                self.refresh_asset_selector()
             except Exception:
                 pass
 
+        try:
+            engine = self.engine()
+        except Exception as error:
+            self.price_label.configure(text="$0.00")
+            self.status.configure(text=f"Market error: {error}", text_color=self.red)
+            return
+
+        try:
+            price = float(engine.get_price(symbol))
+            previous_price = self.last_price
+            self.update_candles(price)
+            self.price_label.configure(text=f"${price:,.2f}")
+
+            if previous_price is not None and previous_price > 0:
+                change = ((price - previous_price) / previous_price) * 100.0
+                if change > 0:
+                    self.price_change_label.configure(text=f"+{change:.3f}%", text_color=self.green)
+                elif change < 0:
+                    self.price_change_label.configure(text=f"{change:.3f}%", text_color=self.red)
+                else:
+                    self.price_change_label.configure(text="0.000%", text_color=self.muted)
+            else:
+                self.price_change_label.configure(text="0.000%", text_color=self.muted)
+        except Exception:
+            self.price_label.configure(text="$0.00")
+            self.price_change_label.configure(text="Market data unavailable", text_color=self.muted)
+            self.status.configure(text="Market data unavailable", text_color=self.muted)
+            self.update_cost()
+            self.update_execute_button()
+            self.calculate_analysis()
+            return
+
+        try:
+            running = engine.live_market_running()
+            interval = engine.live_market_interval_ms()
+            self.live_label.configure(
+                text="● LIVE" if running else "● OFFLINE",
+                text_color=(self.green if running else self.red),
+            )
+            self.market_interval_label.configure(text=f"Core: {interval} ms")
+        except Exception:
+            self.live_label.configure(text="● OFFLINE", text_color=self.red)
+            self.market_interval_label.configure(text="Core: --")
+
+        try:
             account = engine.account()
+            cash = float(account.get("cash", 0.0))
+            equity = float(account.get("equity", account.get("total_equity", 0.0)))
+            pnl = float(account.get("pnl", account.get("total_pnl", 0.0)))
+            position = engine.position(symbol)
+            quantity = float(position.get("quantity", 0.0))
 
-            cash = float(
-                account.get(
-                    "cash",
-                    0.0,
-                )
-            )
-
-            equity = float(
-                account.get(
-                    "equity",
-                    account.get(
-                        "total_equity",
-                        0.0,
-                    ),
-                )
-            )
-
-            pnl = float(
-                account.get(
-                    "pnl",
-                    account.get(
-                        "total_pnl",
-                        0.0,
-                    ),
-                )
-            )
-
-            position = engine.position(
-                self.symbol
-            )
-
-            quantity = float(
-                position.get(
-                    "quantity",
-                    0.0,
-                )
-            )
-
-            self.balance_label.configure(
-                text=f"${cash:,.2f}"
-            )
-
-            self.equity_label.configure(
-                text=f"${equity:,.2f}"
-            )
-
-            base = (
-                self.symbol[:-4]
-                if self.symbol.endswith(
-                    "USDT"
-                )
-                else self.symbol
-            )
-
-            self.position_label.configure(
-                text=f"{quantity:g} {base}"
-            )
-
+            self.balance_label.configure(text=f"${cash:,.2f}")
+            self.equity_label.configure(text=f"${equity:,.2f}")
+            base = symbol[:-4] if symbol.endswith("USDT") else symbol
+            self.position_label.configure(text=f"{quantity:g} {base}")
             self.pnl_label.configure(
                 text=f"${pnl:,.2f}",
-                text_color=(
-                    self.green
-                    if pnl >= 0
-                    else self.red
-                ),
+                text_color=(self.green if pnl >= 0 else self.red),
             )
+        except Exception as error:
+            self.balance_label.configure(text="$0.00")
+            self.equity_label.configure(text="$0.00")
+            self.position_label.configure(text="0 BTC")
+            self.pnl_label.configure(text="$0.00", text_color=self.muted)
+            self.status.configure(text=f"Account error: {error}", text_color=self.red)
 
+        try:
             self.update_cost()
             self.update_execute_button()
             self.update_order_history()
-
             self.calculate_analysis()
+        except Exception as error:
+            self.analysis_label.configure(text="Analysis unavailable", text_color=self.muted)
+            self.status.configure(text=f"Analysis error: {error}", text_color=self.red)
 
-            # Keep chart history.
+        try:
             self.save_chart_cache()
-
             if self.chart_dirty:
                 self.draw_chart()
-
-        except Exception as error:
-            try:
-                self.price_label.configure(
-                    text="$0.00"
-                )
-
-                self.status.configure(
-                    text=(
-                        f"Core error: "
-                        f"{error}"
-                    ),
-                    text_color=self.red,
-                )
-
-            except Exception:
-                pass
+        except Exception:
+            pass
 
     # ================================================================
     # CLOCK

@@ -415,7 +415,7 @@ class MarketsPage(ctk.CTkFrame):
         self.scroll.grid(
             row=1,
             column=0,
-            columnspan=7,
+            columnspan=6,
             sticky="nsew",
             padx=8,
             pady=(0, 8),
@@ -423,7 +423,7 @@ class MarketsPage(ctk.CTkFrame):
 
         # Same column layout as header.
 
-        for column in range(7):
+        for column in range(6):
 
             self.scroll.grid_columnconfigure(
                 column,
@@ -791,7 +791,7 @@ class MarketsPage(ctk.CTkFrame):
         frame.grid(
             row=row_index,
             column=0,
-            columnspan=7,
+            columnspan=6,
             sticky="ew",
             padx=2,
             pady=2,
@@ -805,7 +805,7 @@ class MarketsPage(ctk.CTkFrame):
         # Same columns as header.
         # --------------------------------------------------------
 
-        for column in range(7):
+        for column in range(6):
 
             frame.grid_columnconfigure(
                 column,
@@ -926,27 +926,6 @@ class MarketsPage(ctk.CTkFrame):
         price_label.grid(
             row=0,
             column=4,
-            sticky="ew",
-            padx=8,
-        )
-
-        # ========================================================
-        # 24H CHANGE
-        # ========================================================
-
-        change_label = ctk.CTkLabel(
-            frame,
-            text="—",
-            anchor="e",
-            font=ctk.CTkFont(
-                size=10,
-                weight="bold",
-            ),
-        )
-
-        change_label.grid(
-            row=0,
-            column=5,
             sticky="ew",
             padx=8,
         )

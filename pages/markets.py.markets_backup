@@ -37,7 +37,6 @@ class MarketsPage(ctk.CTkFrame):
     # Giá update mỗi 1 giây.
     # Không dùng refresh_rows() trong timer.
     PRICE_UPDATE_MS = 1000
-    PRICE_REQUEST_TIMEOUT_MS = 15000
 
     def __init__(
         self,
@@ -84,21 +83,8 @@ class MarketsPage(ctk.CTkFrame):
         # }
         self.rows = {}
 
-        # Chỉ có MỘT UI timer.
+        # Chỉ có MỘT timer giá.
         self._price_job = None
-
-        # Background market-data state.
-        self._price_thread = None
-        self._price_request_running = False
-        self._price_generation = 0
-
-        # Cached snapshots:
-        # symbol -> {
-        #     price,
-        #     change_24h,
-        #     source,
-        # }
-        self._snapshots = {}
 
         self._destroyed = False
 
@@ -315,10 +301,9 @@ class MarketsPage(ctk.CTkFrame):
         # 2 = Exchange
         # 3 = Type
         # 4 = Price
-        # 5 = 24h
-        # 6 = Action
+        # 5 = Action
 
-        for column in range(7):
+        for column in range(6):
 
             self.table.grid_columnconfigure(
                 column,
@@ -343,7 +328,7 @@ class MarketsPage(ctk.CTkFrame):
         header_row.grid(
             row=0,
             column=0,
-            columnspan=7,
+            columnspan=6,
             sticky="ew",
             padx=12,
             pady=(8, 0),
@@ -359,7 +344,6 @@ class MarketsPage(ctk.CTkFrame):
             "Exchange",
             "Type",
             "Price",
-            "24h",
             "Action",
         )
 
@@ -415,7 +399,7 @@ class MarketsPage(ctk.CTkFrame):
         self.scroll.grid(
             row=1,
             column=0,
-            columnspan=7,
+            columnspan=6,
             sticky="nsew",
             padx=8,
             pady=(0, 8),
@@ -423,7 +407,7 @@ class MarketsPage(ctk.CTkFrame):
 
         # Same column layout as header.
 
-        for column in range(7):
+        for column in range(6):
 
             self.scroll.grid_columnconfigure(
                 column,
@@ -452,7 +436,7 @@ class MarketsPage(ctk.CTkFrame):
         self.status_label.grid(
             row=2,
             column=0,
-            columnspan=7,
+            columnspan=6,
             sticky="ew",
             padx=15,
             pady=(0, 7),
@@ -791,7 +775,7 @@ class MarketsPage(ctk.CTkFrame):
         frame.grid(
             row=row_index,
             column=0,
-            columnspan=7,
+            columnspan=6,
             sticky="ew",
             padx=2,
             pady=2,
@@ -805,7 +789,7 @@ class MarketsPage(ctk.CTkFrame):
         # Same columns as header.
         # --------------------------------------------------------
 
-        for column in range(7):
+        for column in range(6):
 
             frame.grid_columnconfigure(
                 column,
@@ -931,27 +915,6 @@ class MarketsPage(ctk.CTkFrame):
         )
 
         # ========================================================
-        # 24H CHANGE
-        # ========================================================
-
-        change_label = ctk.CTkLabel(
-            frame,
-            text="—",
-            anchor="e",
-            font=ctk.CTkFont(
-                size=10,
-                weight="bold",
-            ),
-        )
-
-        change_label.grid(
-            row=0,
-            column=5,
-            sticky="ew",
-            padx=8,
-        )
-
-        # ========================================================
         # ACTION
         # ========================================================
 
@@ -962,7 +925,7 @@ class MarketsPage(ctk.CTkFrame):
 
         action_frame.grid(
             row=0,
-            column=6,
+            column=5,
             sticky="ew",
             padx=5,
         )
@@ -989,7 +952,6 @@ class MarketsPage(ctk.CTkFrame):
             "frame": frame,
             "instrument": instrument,
             "price_label": price_label,
-            "change_label": change_label,
         }
 
     # ============================================================
@@ -998,18 +960,21 @@ class MarketsPage(ctk.CTkFrame):
 
     def start_price_updates(self):
         """
-        Start one UI timer.
-
-        Network/provider work is NEVER performed directly by
-        the Tkinter timer.
+        Start exactly ONE realtime price timer.
         """
 
         if self._destroyed:
             return
 
+        # Prevent duplicate timers.
+
         if self._price_job is not None:
+
             try:
-                self.after_cancel(self._price_job)
+                self.after_cancel(
+                    self._price_job
+                )
+
             except Exception:
                 pass
 
@@ -1026,289 +991,94 @@ class MarketsPage(ctk.CTkFrame):
         schedule_next=True,
     ):
         """
-        Request market snapshots in a background thread.
+        Update ONLY price labels.
 
-        Tkinter is only touched from the UI callback.
+        NEVER:
+            - reload instruments
+            - rebuild market list
+            - create rows
+            - destroy rows
+            - update names
+            - update exchanges
+            - update buttons
         """
 
         if self._destroyed:
             return
 
-        symbols = list(self.rows.keys())
+        # --------------------------------------------------------
+        # PRICE UPDATE
+        # --------------------------------------------------------
 
-        if not symbols:
-            self._schedule_price_timer(
-                schedule_next
-            )
-            return
-
-        # Do not create another worker while one is running.
-        if self._price_request_running:
-            self._schedule_price_timer(
-                schedule_next
-            )
-            return
-
-        self._price_request_running = True
-        self._price_generation += 1
-
-        generation = self._price_generation
-
-        def worker():
-            snapshots = {}
-
-            try:
-                for symbol in symbols:
-
-                    if self._destroyed:
-                        return
-
-                    try:
-                        snapshot = (
-                            self.provider.get_snapshot(
-                                symbol
-                            )
-                        )
-
-                        if not isinstance(
-                            snapshot,
-                            dict,
-                        ):
-                            snapshot = {
-                                "symbol": symbol,
-                                "price": None,
-                                "change_24h": None,
-                                "source": "unknown",
-                            }
-
-                    except Exception:
-                        snapshot = {
-                            "symbol": symbol,
-                            "price": None,
-                            "change_24h": None,
-                            "source": "unknown",
-                        }
-
-                    snapshots[symbol] = snapshot
-
-            finally:
-                try:
-                    self.after(
-                        0,
-                        lambda:
-                            self._apply_price_snapshots(
-                                generation,
-                                snapshots,
-                            ),
-                    )
-                except Exception:
-                    self._price_request_running = False
-
-        import threading
-
-        self._price_thread = threading.Thread(
-            target=worker,
-            name="CrytopzMarketData",
-            daemon=True,
-        )
-
-        self._price_thread.start()
-
-        # Timer is scheduled independently.
-        self._schedule_price_timer(
-            schedule_next
-        )
-
-    # ============================================================
-
-    def _schedule_price_timer(
-        self,
-        schedule_next,
-    ):
-        if (
-            not schedule_next
-            or self._destroyed
+        for symbol, data in list(
+            self.rows.items()
         ):
-            return
 
-        if self._price_job is not None:
-            try:
-                self.after_cancel(
-                    self._price_job
-                )
-            except Exception:
-                pass
-
-        try:
-            self._price_job = self.after(
-                self.PRICE_UPDATE_MS,
-                self._scheduled_price_update,
-            )
-        except Exception:
-            self._price_job = None
-
-    # ============================================================
-
-    def _apply_price_snapshots(
-        self,
-        generation,
-        snapshots,
-    ):
-        """
-        Runs on Tkinter's UI thread.
-        """
-
-        if self._destroyed:
-            return
-
-        if generation != self._price_generation:
-            return
-
-        self._price_request_running = False
-
-        live_count = 0
-        paper_count = 0
-
-        for symbol, data in snapshots.items():
-
-            if self._destroyed:
-                return
-
-            row = self.rows.get(symbol)
-
-            if row is None:
-                continue
-
-            self._snapshots[symbol] = data
-
-            instrument = row.get(
-                "instrument"
+            instrument = (
+                data["instrument"]
             )
 
-            price_label = row.get(
-                "price_label"
+            price_label = (
+                data["price_label"]
             )
-
-            change_label = row.get(
-                "change_label"
-            )
-
-            price = data.get(
-                "price"
-            )
-
-            change = data.get(
-                "change_24h"
-            )
-
-            source = str(
-                data.get(
-                    "source",
-                    "unknown",
-                )
-            ).lower()
 
             try:
-                currency = getattr(
-                    instrument,
-                    "currency",
-                    "USD",
+
+                price = (
+                    self.provider.get_price(
+                        symbol
+                    )
                 )
 
                 price_label.configure(
                     text=self.format_price(
                         price,
-                        currency,
+                        instrument.currency,
                     )
                 )
+
             except Exception:
-                pass
+
+                # Do not crash the UI because one market
+                # has a bad/missing price.
+
+                try:
+
+                    price_label.configure(
+                        text="—"
+                    )
+
+                except Exception:
+                    pass
+
+        # --------------------------------------------------------
+        # NEXT TIMER
+        # --------------------------------------------------------
+
+        if (
+            schedule_next
+            and not self._destroyed
+        ):
 
             try:
-                if change is None:
-                    change_label.configure(
-                        text="—",
-                        text_color="gray",
-                    )
 
-                else:
-                    change = float(change)
-
-                    if change > 0:
-                        change_label.configure(
-                            text=f"+{change:.2f}%",
-                            text_color="#4ade80",
-                        )
-
-                    elif change < 0:
-                        change_label.configure(
-                            text=f"{change:.2f}%",
-                            text_color="#f87171",
-                        )
-
-                    else:
-                        change_label.configure(
-                            text="0.00%",
-                            text_color="gray",
-                        )
-
-            except Exception:
-                pass
-
-            if price is not None:
-
-                if source == "external":
-                    live_count += 1
-
-                else:
-                    paper_count += 1
-
-        total = len(
-            self.rows
-        )
-
-        if live_count > 0:
-
-            text = (
-                f"LIVE • "
-                f"{live_count}/{total} prices"
-            )
-
-            if paper_count:
-                text += (
-                    f" • PAPER fallback "
-                    f"{paper_count}"
+                self._price_job = self.after(
+                    self.PRICE_UPDATE_MS,
+                    self._scheduled_price_update,
                 )
 
-            self.status_label.configure(
-                text=text,
-                text_color="#4ade80",
-            )
+            except Exception:
 
-        elif paper_count > 0:
-
-            self.status_label.configure(
-                text=(
-                    f"PAPER • "
-                    f"{paper_count}/{total} prices"
-                ),
-                text_color="#facc15",
-            )
-
-        else:
-
-            self.status_label.configure(
-                text="Waiting for market data...",
-                text_color="gray",
-            )
+                self._price_job = None
 
     # ============================================================
 
     def _scheduled_price_update(self):
         """
-        Tkinter timer callback.
+        Timer callback.
 
-        No network access here.
+        It ONLY updates prices.
+        It NEVER reloads the market list.
         """
 
         self._price_job = None
@@ -1318,23 +1088,6 @@ class MarketsPage(ctk.CTkFrame):
 
         self.update_prices(
             schedule_next=True
-        )
-
-
-    # ============================================================
-    # SNAPSHOT ACCESS
-    # ============================================================
-
-    def get_cached_snapshot(
-        self,
-        symbol: str,
-    ):
-        """
-        Return the last known snapshot without performing I/O.
-        """
-
-        return self._snapshots.get(
-            str(symbol).upper()
         )
 
     # ============================================================
@@ -1489,10 +1242,6 @@ class MarketsPage(ctk.CTkFrame):
             return
 
         self._destroyed = True
-
-        # Invalidate any worker result that is still returning.
-        self._price_generation += 1
-        self._price_request_running = False
 
         # Cancel the ONLY timer.
 
