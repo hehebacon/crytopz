@@ -5,8 +5,102 @@ import math
 import time
 from pathlib import Path
 
+from dataclasses import dataclass
+
 import tkinter as tk
 import customtkinter as ctk
+
+
+# ================================================================
+# ACCOUNT REGISTRY
+# ================================================================
+
+@dataclass
+class TradeAccount:
+    """Account descriptor used by TradePage.
+
+    Paper is the only account type provided by default. Future
+    Settings integrations can register additional accounts here
+    without changing the Trade UI.
+    """
+
+    account_id: str
+    name: str
+    account_type: str = "paper"
+    status: str = "Ready"
+    engine_provider: object = None
+
+
+class AccountRegistry:
+    """Central account list for the Trade page.
+
+    The registry deliberately does not connect wallets/exchanges.
+    It only stores account descriptors and selects the active
+    execution provider. Settings can register providers later.
+    """
+
+    def __init__(self, paper_engine_provider):
+        self._accounts = {}
+        self._active_id = "paper"
+
+        self.register(
+            TradeAccount(
+                account_id="paper",
+                name="Paper Account",
+                account_type="paper",
+                status="Ready",
+                engine_provider=paper_engine_provider,
+            )
+        )
+
+    def register(self, account: TradeAccount):
+        if not account.account_id:
+            raise ValueError("Account id is required.")
+
+        self._accounts[account.account_id] = account
+
+    def unregister(self, account_id):
+        if account_id == "paper":
+            return
+
+        self._accounts.pop(account_id, None)
+
+        if self._active_id not in self._accounts:
+            self._active_id = "paper"
+
+    def all(self):
+        return list(self._accounts.values())
+
+    def names(self):
+        return [account.name for account in self.all()]
+
+    def by_name(self, name):
+        for account in self.all():
+            if account.name == name:
+                return account
+        return None
+
+    def select(self, account_id):
+        account = self._accounts.get(account_id)
+        if account is None:
+            return False
+
+        if not callable(account.engine_provider):
+            return False
+
+        self._active_id = account_id
+        return True
+
+    @property
+    def active(self):
+        return self._accounts.get(
+            self._active_id,
+            self._accounts["paper"],
+        )
+
+    def active_engine(self):
+        provider = self.active.engine_provider
+        return provider() if callable(provider) else None
 
 
 class TradePage(ctk.CTkFrame):
@@ -19,6 +113,18 @@ class TradePage(ctk.CTkFrame):
         )
 
         self.app = app
+
+        # Paper-first account registry. Additional accounts are
+        # registered later by Settings/Account integrations.
+        existing_registry = getattr(app, "account_registry", None)
+        if isinstance(existing_registry, AccountRegistry):
+            self.account_registry = existing_registry
+        else:
+            self.account_registry = AccountRegistry(
+                lambda: self.app.engine
+            )
+            self.app.account_registry = self.account_registry
+
         self.symbol = "BTCUSDT"
         self.side = "BUY"
 
@@ -1264,7 +1370,10 @@ class TradePage(ctk.CTkFrame):
     # ================================================================
 
     def engine(self):
-        return self.app.engine
+        engine = self.account_registry.active_engine()
+        if engine is None:
+            return self.app.engine
+        return engine
 
     def add_label(self, parent, text):
         ctk.CTkLabel(
@@ -3423,12 +3532,91 @@ class TradePage(ctk.CTkFrame):
         )
 
         account.configure(
-            height=52
+            height=82
+        )
+
+        # ------------------------------------------------------------
+        # ACCOUNT SELECTOR
+        # ------------------------------------------------------------
+
+        selector_row = ctk.CTkFrame(
+            account,
+            fg_color="transparent",
+            height=30,
+        )
+
+        selector_row.pack(
+            fill="x",
+            padx=9,
+            pady=(5, 1),
+        )
+
+        selector_row.pack_propagate(False)
+
+        ctk.CTkLabel(
+            selector_row,
+            text="Account",
+            text_color=self.muted,
+            font=ctk.CTkFont(
+                size=8,
+                weight="bold",
+            ),
+        ).pack(
+            side="left",
+            padx=(0, 8),
+        )
+
+        self.account_selector = ctk.CTkOptionMenu(
+            selector_row,
+            values=self.account_registry.names(),
+            command=self.on_account_changed,
+            height=25,
+            width=170,
+            corner_radius=6,
+            font=ctk.CTkFont(size=9),
+        )
+
+        self.account_selector.set(
+            self.account_registry.active.name
+        )
+
+        self.account_selector.pack(
+            side="left",
+        )
+
+        self.account_type_label = ctk.CTkLabel(
+            selector_row,
+            text=self.account_badge_text(),
+            text_color=self.green,
+            font=ctk.CTkFont(
+                size=8,
+                weight="bold",
+            ),
+        )
+
+        self.account_type_label.pack(
+            side="right",
+        )
+
+        # ------------------------------------------------------------
+        # ACCOUNT STATS
+        # ------------------------------------------------------------
+
+        stats_row = ctk.CTkFrame(
+            account,
+            fg_color="transparent",
+        )
+
+        stats_row.pack(
+            fill="both",
+            expand=True,
+            padx=2,
+            pady=(0, 3),
         )
 
         self.balance_label = (
             self.account_stat(
-                account,
+                stats_row,
                 "Balance",
                 "$0.00",
             )
@@ -3436,7 +3624,7 @@ class TradePage(ctk.CTkFrame):
 
         self.equity_label = (
             self.account_stat(
-                account,
+                stats_row,
                 "Equity",
                 "$0.00",
             )
@@ -3444,7 +3632,7 @@ class TradePage(ctk.CTkFrame):
 
         self.position_label = (
             self.account_stat(
-                account,
+                stats_row,
                 "Position",
                 "0 BTC",
             )
@@ -3452,11 +3640,54 @@ class TradePage(ctk.CTkFrame):
 
         self.pnl_label = (
             self.account_stat(
-                account,
+                stats_row,
                 "PnL",
                 "$0.00",
             )
         )
+
+    def account_badge_text(self):
+        account = self.account_registry.active
+        return f"● {account.account_type.upper()}"
+
+    def on_account_changed(self, account_name):
+        account = self.account_registry.by_name(
+            account_name
+        )
+
+        if account is None:
+            return
+
+        if not self.account_registry.select(
+            account.account_id
+        ):
+            try:
+                self.account_selector.set(
+                    self.account_registry.active.name
+                )
+            except Exception:
+                pass
+
+            self.status.configure(
+                text=(
+                    f"Account '{account.name}' is not ready."
+                ),
+                text_color=self.red,
+            )
+            return
+
+        self.account_type_label.configure(
+            text=self.account_badge_text(),
+            text_color=(
+                self.green
+                if account.account_type == "paper"
+                else self.blue
+            ),
+        )
+
+        self.last_order_count = -1
+        self.reset_chart_state()
+        self.refresh()
 
     def account_stat(
         self,
